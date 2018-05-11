@@ -1,0 +1,54 @@
+version: '3.6'
+services:
+    skywalking-es:
+        build:
+            context: .
+            dockerfile: Dockerfile-es
+        container_name: skywalking-es
+        ports:
+            - "9200:9200"
+            - "9300:9300"
+        cap_add:
+            - IPC_LOCK
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+            nofile:
+                soft: 65536
+                hard: 65536
+        volumes:
+            - type: bind
+              source: ${SKYWALKING_ES_DATA}/data
+              target: /usr/share/elasticsearch/data
+            - type: bind
+              source: ${SKYWALKING_ES_DATA}/logs
+              target: /usr/share/elasticsearch/logs
+        command: -E cluster.name=es-skywalking -E path.data=data -E path.logs=logs -E network.host=0.0.0.0 -E thread_pool.bulk.queue_size=1000 -E node.name=node-1
+
+    skywalking-main:
+        build:
+            context: .
+            dockerfile: Dockerfile-skywalking
+        container_name: skywalking-main
+        depends_on:
+            - skywalking-es
+        volumes:
+            - type: bind
+              source: ${SKYWALKING_DATA}/config
+              target: /apache-skywalking-apm-incubating/config
+            - type: bind
+              source: ${SKYWALKING_DATA}/logs
+              target: /apache-skywalking-apm-incubating/logs
+            - type: bind
+              source: ${SKYWALKING_DATA}/buffer
+              target: /apache-skywalking-apm-incubating/buffer
+        ports:
+            - "9920:9920"
+            - "9921:9921"
+            - "9922:9922"
+            - "9923:9923"
+        network_mode: "host"
+        environment:
+            - SKYWALKING_HOST=${SKYWALKING_HOST}
+            - SKYWALKING_WEBAPP_PORT=${SKYWALKING_WEBAPP_PORT}
